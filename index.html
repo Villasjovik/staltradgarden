@@ -1209,7 +1209,7 @@ position:relative;overflow:hidden;transition:color .35s}
                   <span class="pkg-tick" data-pkg-tick="starter" data-step="0">0 kr</span>
                   <span class="pkg-tick" data-pkg-tick="starter" data-step="1">5 000</span>
                   <span class="pkg-tick is-active" data-pkg-tick="starter" data-step="2">10 000</span>
-                  <span class="pkg-tick" data-pkg-tick="starter" data-step="3">20 000</span>
+                  <span class="pkg-tick" data-pkg-tick="starter" data-step="3">15 000</span>
                 </div>
               </div>
             </div>
@@ -1238,7 +1238,7 @@ position:relative;overflow:hidden;transition:color .35s}
             <span class="pkg-boost-switch" aria-hidden="true"></span>
             <span class="pkg-boost-text">
               <span class="pkg-boost-tag">Partnership Ads &middot; <em>Recommended</em></span>
-              <span class="pkg-boost-title">Activate Partnership Ads <span class="pkg-boost-price" data-bt-price="campaign">+20&nbsp;000 kr</span></span>
+              <span class="pkg-boost-title">Activate Partnership Ads <span class="pkg-boost-price" data-bt-price="campaign">+30&nbsp;000 kr</span></span>
             </span>
           </button>
           <div class="pkg-boost-body" id="pkg-boost-body-campaign" aria-hidden="true">
@@ -1250,9 +1250,9 @@ position:relative;overflow:hidden;transition:color .35s}
                 <input id="pk-range-campaign" class="pkg-range" type="range" min="0" max="3" step="1" value="2" data-pkg-slider="campaign" aria-label="Partnership Ads budget for the Campaign package"/>
                 <div class="pkg-ticks" aria-hidden="true">
                   <span class="pkg-tick" data-pkg-tick="campaign" data-step="0">0 kr</span>
-                  <span class="pkg-tick" data-pkg-tick="campaign" data-step="1">10 000</span>
-                  <span class="pkg-tick is-active" data-pkg-tick="campaign" data-step="2">20 000</span>
-                  <span class="pkg-tick" data-pkg-tick="campaign" data-step="3">40 000</span>
+                  <span class="pkg-tick" data-pkg-tick="campaign" data-step="1">5 000</span>
+                  <span class="pkg-tick is-active" data-pkg-tick="campaign" data-step="2">10 000</span>
+                  <span class="pkg-tick" data-pkg-tick="campaign" data-step="3">15 000</span>
                 </div>
               </div>
             </div>
@@ -1263,8 +1263,8 @@ position:relative;overflow:hidden;transition:color .35s}
           <h3 class="price-title">Campaign</h3>
           <p class="price-sub">3 videos &middot; 6 stories with CTA &middot; more lifestyle images</p>
           <p class="price-total-lbl">Price</p>
-          <p class="price-orig" data-base="reg. 55 500 kr" data-boost="reg. 75 500 kr">reg. 55 500 kr</p>
-          <p class="price-total" data-base="39000" data-boost="59000">39 000</p>
+          <p class="price-orig" data-base="reg. 55 500 kr" data-boost="reg. 85 500 kr">reg. 55 500 kr</p>
+          <p class="price-total" data-base="39000" data-boost="69000">39 000</p>
           <span class="price-unit">SEK</span>
           <div class="price-includes">
             <p class="pi hi">3 videos on Villa Sjövik&apos;s channels &mdash; Carin on camera, speaking</p>
@@ -1634,39 +1634,66 @@ if(spotSec){
   });
 })();
 
-/* === PER-PACKAGE PKG-BOOST (Partnership Ads per package) — SEK 2-tier === */
+/* === PER-PACKAGE PKG-BOOST (Partnership Ads per package) — linear, ×productions === */
 (function(){
-  // Per-package view-rate (extra views per kr of Partnership Ads budget) so the spec defaults land exactly:
-  //   Starter   10 000 kr budget -> 100,000 views  (rate 10)
-  //   Campaign  20 000 kr budget -> 300,000 views  (rate 15, 3 videos amplify reach)
-  const VIEWS_PER_KR={starter:10, campaign:15};
+  // Extra views per kr of Partnership Ads budget PER PRODUCTION (then ×productions below).
+  //   Starter   10 000 kr/production × 10 × 1 = 100,000 views
+  //   Campaign  10 000 kr/production × 10 × 3 = 300,000 views
+  const VIEWS_PER_KR=10;
 
   function fmt(n){return Math.round(n).toLocaleString('sv-SE')}
   function fmtThin(n){return Math.round(n).toLocaleString('sv-SE').replace(/\s/g,' ')}
 
-  // Per-package step values (total Meta ad budget in kr), linear & monotonic.
-  //   Starter:  0 / 5 000 / 10 000 / 20 000   (default step 2 = +10 000 kr)
-  //   Campaign: 0 / 10 000 / 20 000 / 40 000  (default step 2 = +20 000 kr)
-  const STEP_VALUES={
-    starter:[0,5000,10000,20000],
-    campaign:[0,10000,20000,40000]
-  };
-  const cardBudget={starter:10000, campaign:20000};
+  /* Robust count-up: cancels any in-flight frame for the SAME element before
+     starting a new one (per-element rAF id in a WeakMap) so rapid slider drags
+     never leave it frozen or racing, and the FINAL frame snaps to the exact target. */
+  const _rafIds=new WeakMap();
+  function animateNumber(el,from,to,duration,formatter){
+    const fmtFn=formatter||fmt;
+    const prev=_rafIds.get(el);
+    if(prev){cancelAnimationFrame(prev);_rafIds.delete(el);}
+    from=Number(from);to=Number(to);
+    if(!isFinite(from)){from=to;}
+    if(from===to){el.textContent=fmtFn(to);return;}
+    const start=performance.now();
+    function tick(now){
+      const t=Math.min((now-start)/duration,1);
+      const eased=1-Math.pow(1-t,3);
+      if(t<1){
+        el.textContent=fmtFn(from+(to-from)*eased);
+        _rafIds.set(el,requestAnimationFrame(tick));
+      }else{
+        el.textContent=fmtFn(to); // exact landing
+        _rafIds.delete(el);
+      }
+    }
+    _rafIds.set(el,requestAnimationFrame(tick));
+  }
 
-  function stepFromBudget(pkg,b){
-    const steps=STEP_VALUES[pkg]||[0];
-    let idx=steps.indexOf(b);
+  // Per-PRODUCTION Meta budget steps (kr), linear & monotonic — shared by both packages.
+  //   step 0 / 1 / 2 / 3  ->  0 / 5 000 / 10 000 / 15 000   (default step 2 = 10 000/production)
+  const STEP_VALUES=[0,5000,10000,15000];
+  // Productions per package — the per-production budget AND reach is multiplied by this.
+  //   Starter  = 1 video  -> ×1
+  //   Campaign = 3 videos -> ×3
+  const PKG_MULT={starter:1, campaign:3};
+  // cardBudget holds the PER-PRODUCTION budget (default 10 000).
+  const cardBudget={starter:10000, campaign:10000};
+
+  function stepFromBudget(b){
+    let idx=STEP_VALUES.indexOf(b);
     if(idx>=0) return idx;
     let best=0, bestDiff=Infinity;
-    for(let i=0;i<steps.length;i++){
-      const d=Math.abs(steps[i]-b);
+    for(let i=0;i<STEP_VALUES.length;i++){
+      const d=Math.abs(STEP_VALUES[i]-b);
       if(d<bestDiff){bestDiff=d;best=i;}
     }
     return best;
   }
-  // Boost cost == the total Meta budget on the slider (added straight to the package price).
-  function boostCostForCard(pkg){return cardBudget[pkg];}
-  function viewsForCard(pkg){return cardBudget[pkg]*VIEWS_PER_KR[pkg];}
+  // Total added cost = per-production budget × number of productions.
+  function boostCostForCard(pkg){return cardBudget[pkg]*(PKG_MULT[pkg]||1);}
+  // Reach scales the same way (3 boosted productions ≈ 3× reach).
+  function viewsForCard(pkg){return cardBudget[pkg]*VIEWS_PER_KR*(PKG_MULT[pkg]||1);}
 
   function refreshCard(pkg,opts){
     const col=document.querySelector('[data-pkg-col="'+pkg+'"]');
@@ -1711,11 +1738,14 @@ if(spotSec){
     }else{
       if(desc) desc.hidden=false;
       if(descZero) descZero.hidden=true;
-      if(statLbl) statLbl.innerHTML=fmtThin(views);
+      if(statLbl){
+        const curViews=parseInt(statLbl.textContent.replace(/[^\d]/g,''),10);
+        animateNumber(statLbl,isFinite(curViews)?curViews:views,views,420,fmtThin);
+      }
     }
 
     if(slider){
-      const step=stepFromBudget(pkg,cardBudget[pkg]);
+      const step=stepFromBudget(cardBudget[pkg]);
       if(!(opts&&opts.skipSlider)){slider.value=step;}
       const pct=(step/3)*100;
       slider.style.setProperty('--pk-fill',pct+'%');
@@ -1726,12 +1756,19 @@ if(spotSec){
       const currentDisplayed=parseInt(total.textContent.replace(/[^\d]/g,''),10);
       const target=base+cost;
       if(currentDisplayed!==target){
-        total.textContent=fmt(target);
+        animateNumber(total,currentDisplayed,target,420);
         total.classList.remove('boost-pulse');void total.offsetWidth;total.classList.add('boost-pulse');
       }
-      if(orig){orig.textContent= cost===0 ? orig.dataset.base : orig.dataset.boost;}
+      if(orig){
+        if(cost===0){orig.textContent=orig.dataset.base;}
+        else{
+          const origBaseNum=parseInt(orig.dataset.base.replace(/[^\d]/g,''),10);
+          const origCur=parseInt(orig.textContent.replace(/[^\d]/g,''),10);
+          animateNumber(orig,isFinite(origCur)?origCur:origBaseNum,origBaseNum+cost,420,n=>'reg. '+fmt(n)+' kr');
+        }
+      }
     }else{
-      if(total.textContent.replace(/[^\d]/g,'')!==String(base)){total.textContent=fmt(base);}
+      if(total.textContent.replace(/[^\d]/g,'')!==String(base)){animateNumber(total,parseInt(total.textContent.replace(/[^\d]/g,''),10),base,420);}
       if(orig){orig.textContent=orig.dataset.base;}
     }
   }
@@ -1761,7 +1798,7 @@ if(spotSec){
         const base=+total.dataset.base, boost=+total.dataset.boost;
         const from=next?base:boost, to=next?boost:base;
         if(from!==to){
-          total.textContent=fmt(to);
+          animateNumber(total,from,to,720);
           total.classList.remove('boost-pulse');void total.offsetWidth;total.classList.add('boost-pulse');
         }
         const orig=col.querySelector('.price-orig[data-base][data-boost]');
@@ -1779,7 +1816,7 @@ if(spotSec){
     const pkg=slider.dataset.pkgSlider;
     slider.addEventListener('input',e=>{
       const step=+e.target.value;
-      const kr=(STEP_VALUES[pkg]||[0])[step]||0;
+      const kr=STEP_VALUES[step]||0;
       setCardBudget(pkg,kr,{skipSlider:true});
     });
     slider.addEventListener('click',e=>e.stopPropagation());
@@ -1794,7 +1831,7 @@ if(spotSec){
       e.stopPropagation();
       const pkg=tick.dataset.pkgTick;
       const step=+tick.dataset.step;
-      setCardBudget(pkg,(STEP_VALUES[pkg]||[0])[step]||0);
+      setCardBudget(pkg,STEP_VALUES[step]||0);
     });
   });
 
